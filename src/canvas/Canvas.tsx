@@ -189,7 +189,9 @@ export function Canvas() {
     }
 
     const handle = t.closest('[data-handle]');
-    const elNode = t.closest('[data-el]') as HTMLElement | null;
+    let elNode = t.closest('[data-el]') as HTMLElement | null;
+    // раздел берётся только за заголовок (или за уголок), пустое место внутри — это доска
+    if (elNode?.classList.contains('el-frame') && !handle && !t.closest('[data-frame-title]')) elNode = null;
     if (handle && elNode && !st.readMode) {
       const id = elNode.dataset.el!;
       const el = st.board().elements[id];
