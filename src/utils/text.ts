@@ -102,3 +102,9 @@ export function matchQuery(text: string, query: string): Match | null {
 export function normTitle(s: string): string {
   return norm(s).replace(/[^\p{L}\p{N} ]/gu, '').replace(/\s+/g, ' ').trim();
 }
+
+/** «📞 Звонки» → { icon: '📞', name: 'Звонки' } */
+export function splitIcon(title: string): { icon?: string; name: string } {
+  const m = title.trim().match(/^(\p{Extended_Pictographic}️?)\s*(.*)$/u);
+  return m && m[2] ? { icon: m[1], name: m[2] } : { name: title.trim() };
+}

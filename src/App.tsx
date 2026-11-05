@@ -14,7 +14,6 @@ import { AskDialog, Toast } from './ui/common';
 import { addImageFromDataUrl, copyElement, duplicateSelection, fitAll, importMarkup, makeElement, plainTextToMarkup, scheduleRelayout, viewCenterWorld } from './actions';
 import { fileToDataURL } from './utils/misc';
 import { looksLikeMarkup } from './markup/parse';
-import { welcomeGroups } from './welcome';
 import type { El } from './types';
 
 const FONTS = {
@@ -31,14 +30,20 @@ export default function App() {
   const quickMode = useApp((s) => s.quickMode);
 
   useEffect(() => {
-    void useApp
-      .getState()
-      .init()
-      .then(() => {
-        // приветственная доска: уточняем раскладку после измерения карточек
-        if (welcomeGroups) scheduleRelayout(welcomeGroups, 80, 80, 'first');
-      });
+    void useApp.getState().init();
   }, []);
+
+  // доски из разметки: уточняем раскладку после первой отрисовки и измерения карточек
+  const currentBoardId = useApp((s) => s.currentBoardId);
+  useEffect(() => {
+    if (!ready) return;
+    const st = useApp.getState();
+    const b = st.board();
+    const pl = b?.pendingLayout;
+    if (!pl) return;
+    useApp.setState({ boards: st.boards.map((x) => (x.id === b.id ? { ...x, pendingLayout: undefined } : x)) });
+    scheduleRelayout(pl.groups, pl.ox, pl.oy, 'first');
+  }, [ready, currentBoardId]);
 
   // ---------- применяем настройки к документу ----------
   useEffect(() => {

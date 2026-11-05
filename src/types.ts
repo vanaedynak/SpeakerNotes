@@ -58,6 +58,8 @@ export interface Board {
   links: Link[];
   viewport: Viewport;
   createdAt: number;
+  /** раскладка, которую нужно уточнить после первой отрисовки (для досок из разметки) */
+  pendingLayout?: { groups: { frameId: string | null; itemIds: string[] }[]; ox: number; oy: number };
 }
 
 export type ThemeKey = 'amoled' | 'dark' | 'contrast' | 'light' | 'sepia';

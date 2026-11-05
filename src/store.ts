@@ -96,9 +96,11 @@ export const useApp = create<AppState>((set, get) => ({
   init: async () => {
     const s = await loadState();
     if (s && s.boards?.length) {
+      const boards = s.boards;
+      const cur = s.boards.some((b) => b.id === s.currentBoardId) ? s.currentBoardId : s.boards[0].id;
       set({
-        boards: s.boards,
-        currentBoardId: s.boards.some((b) => b.id === s.currentBoardId) ? s.currentBoardId : s.boards[0].id,
+        boards,
+        currentBoardId: cur,
         settings: { ...DEFAULT_SETTINGS, ...s.settings },
         recent: s.recent ?? [],
         ready: true,

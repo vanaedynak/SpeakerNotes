@@ -106,7 +106,7 @@ export function SettingsDialog() {
         >
           📂 Открыть копию
         </button>
-        <button className="btn" onClick={() => (st.set({ boards: [...useApp.getState().boards, { ...makeWelcomeBoard(), name: 'Справка' }] }), st.showToast('Добавлена доска «Справка»'))}>
+        <button className="btn" onClick={() => (st.set({ boards: [...useApp.getState().boards, makeWelcomeBoard()] }), st.showToast('Добавлена доска «Справка»'))}>
           ❓ Добавить доску-справку
         </button>
         <button className="btn" onClick={() => set(DEFAULT_SETTINGS)}>

@@ -1,7 +1,7 @@
 import type { CalloutKind, ColorKey, DialogLine, El, FrameEl, Link, LinkStyle, CheckItem } from '../types';
 import { COLOR_KEYS } from '../types';
 import { uid } from '../utils/misc';
-import { DEFAULT_W, estimateHeight, layoutColumns, gridFrames, FRAME_PAD, FRAME_TITLE } from '../layout';
+import { DEFAULT_W, estimateHeight, layoutColumns, gridFrames, frameMinW, FRAME_PAD, FRAME_TITLE } from '../layout';
 import { normTitle } from '../utils/text';
 
 /**
@@ -408,7 +408,7 @@ export function parseMarkup(src: string, textScale = 1.15): ParseResult {
       const f = g.frame;
       const { pos, w, h } = layoutColumns(g.items, FRAME_PAD, FRAME_TITLE, sizeOf);
       g.items.forEach((e) => Object.assign(e, pos[e.id]));
-      f.w = Math.max(g.items.length ? w + FRAME_PAD * 2 : 400, 360);
+      f.w = Math.max(g.items.length ? w + FRAME_PAD * 2 : 400, 360, frameMinW(f.title, textScale));
       f.h = (g.items.length ? h : 120) + FRAME_TITLE + FRAME_PAD;
       f.z = 0; // рамки — снизу
       frameBoxes.push({ id: f.id, w: f.w, h: f.h });

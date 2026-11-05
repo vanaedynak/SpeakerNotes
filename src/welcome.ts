@@ -1,8 +1,7 @@
 import type { Board } from './types';
-import { parseMarkup, offsetResult, type ParseResult } from './markup/parse';
-
-export let welcomeGroups: ParseResult['groups'] | null = null;
+import { parseMarkup, offsetResult } from './markup/parse';
 import { uid } from './utils/misc';
+import { splitIcon } from './utils/text';
 
 export const WELCOME = `@frame 👋 Как пользоваться | color: blue
 # Добро пожаловать в SpeakerNotes
@@ -26,7 +25,7 @@ export const WELCOME = `@frame 👋 Как пользоваться | color: blu
 
 @frame 💬 Примеры фраз | color: green
 ## Приветствие
-Добрый день! Меня зовут [имя], компания Киевстар. Чем могу помочь? {key: hello, fav}
+Добрый день! Меня зовут [имя], компания Киевстар. Чем могу помочь? {key: hello}
 Спасибо, что обратились! Сейчас всё проверю. {key: check}
 ## Если клиент недоволен
 Я понимаю ваше недовольство. Давайте вместе разберёмся, что произошло. {key: calm}
@@ -53,19 +52,28 @@ export const WELCOME = `@frame 👋 Как пользоваться | color: blu
 @link check -> calm "если злится" | style: dashed | color: red
 `;
 
-export function makeWelcomeBoard(): Board {
-  const r = parseMarkup(WELCOME);
+export function boardFromMarkup(text: string, name: string, icon = '📋'): Board {
+  const r = parseMarkup(text);
   offsetResult(r, 80, 80);
-  welcomeGroups = r.groups;
   const elements: Board['elements'] = {};
   for (const e of r.elements) elements[e.id] = e;
+  let nm = name;
+  let ic = icon;
+  if (r.boardName) {
+    const sp = splitIcon(r.boardName);
+    nm = sp.name;
+    ic = sp.icon ?? icon;
+  }
   return {
     id: uid(),
-    name: 'Моя доска',
-    icon: '📋',
+    name: nm,
+    icon: ic,
     elements,
     links: r.links,
     viewport: { x: 40, y: 40, zoom: 0.8 },
     createdAt: Date.now(),
+    pendingLayout: { groups: r.groups, ox: 80, oy: 80 },
   };
 }
+
+export const makeWelcomeBoard = () => boardFromMarkup(WELCOME, 'Справка', '❓');

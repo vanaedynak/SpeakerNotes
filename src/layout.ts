@@ -40,6 +40,11 @@ export function estimateHeight(el: El, textScale = 1.15): number {
   }
 }
 
+/** Минимальная ширина рамки, чтобы название поместилось */
+export function frameMinW(title: string, textScale = 1.15) {
+  return Math.min(900, Math.round(title.length * 15.5 * textScale + 110));
+}
+
 export type SizeOf = (el: El) => { w: number; h: number };
 
 /**

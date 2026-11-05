@@ -1,8 +1,8 @@
 import type { Board, El, ElType, FrameEl } from './types';
 import { useApp, useSizes, useView } from './store';
 import { uid, clamp, copyText, normalizeImage, saveFile, pickFile, fileToDataURL } from './utils/misc';
-import { plainForCopy, normTitle as norm } from './utils/text';
-import { DEFAULT_W, estimateHeight, frameChildren, gridFrames, layoutColumns, tidyFrame, FRAME_PAD, FRAME_TITLE } from './layout';
+import { plainForCopy, normTitle as norm, splitIcon } from './utils/text';
+import { DEFAULT_W, estimateHeight, frameMinW, frameChildren, gridFrames, layoutColumns, tidyFrame, FRAME_PAD, FRAME_TITLE } from './layout';
 import { parseMarkup, offsetResult, type ParseResult } from './markup/parse';
 import { putImage, getImage } from './db';
 
@@ -299,7 +299,8 @@ export function importMarkup(text: string, opts: ImportOpts): ParseResult {
   const r = parseMarkup(text, st.settings.textScale);
   if (!r.elements.length) return r;
   if (opts.target === 'new') {
-    st.addBoard(r.boardName || 'Импорт ' + new Date().toLocaleDateString('ru'));
+    const { icon, name } = splitIcon(r.boardName || 'Импорт ' + new Date().toLocaleDateString('ru'));
+    st.addBoard(name, icon);
   }
   const b = useApp.getState().board();
   // ставим правее существующего содержимого (или в центр пустой доски)
@@ -368,7 +369,7 @@ export function relayoutGroups(groups: ParseResult['groups'], ox: number, oy: nu
       if (!f) return;
       const { pos, w, h } = layoutColumns(items, FRAME_PAD, FRAME_TITLE, sizeOf);
       rel[gid] = { items: pos };
-      const fw = Math.max(items.length ? w + FRAME_PAD * 2 : 400, 360);
+      const fw = Math.max(items.length ? w + FRAME_PAD * 2 : 400, 360, frameMinW((f as FrameEl).title, st.settings.textScale));
       const fh = (items.length ? h : 120) + FRAME_TITLE + FRAME_PAD;
       patches[g.frameId] = { w: fw, h: fh };
       boxes.push({ id: gid, w: fw, h: fh });
