@@ -1,0 +1,164 @@
+name: Build apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  # ---------------- веб-версия (GitHub Pages) ----------------
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+
+  pages:
+    needs: web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  # ---------------- Android (.apk) ----------------
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap add android
+      - run: npx @capacitor/assets generate --android --iconBackgroundColor '#000000' --iconBackgroundColorDark '#000000' --splashBackgroundColor '#000000' --splashBackgroundColorDark '#000000'
+      - run: npx cap sync android
+      - name: Gradle build
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/SpeakerNotes-android.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: android, path: out/SpeakerNotes-android.apk }
+
+  # ---------------- iPad / iPhone (.ipa без подписи) ----------------
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap add ios
+      - run: npx @capacitor/assets generate --ios --iconBackgroundColor '#000000' --splashBackgroundColor '#000000' --splashBackgroundColorDark '#000000'
+      - run: npx cap sync ios
+      - name: Info.plist (доступ к фото и камере для вставки картинок, все ориентации)
+        run: |
+          PL=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Чтобы вставлять картинки и скриншоты на доску'" $PL || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'Чтобы сохранять картинки'" $PL || true
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Чтобы сфотографировать и вставить на доску'" $PL || true
+          /usr/libexec/PlistBuddy -c "Add :UIFileSharingEnabled bool true" $PL || true
+          /usr/libexec/PlistBuddy -c "Add :LSSupportsOpeningDocumentsInPlace bool true" $PL || true
+          /usr/libexec/PlistBuddy -c "Add :UIRequiresFullScreen bool false" $PL || true
+      - name: Xcode build (без подписи)
+        run: |
+          cd ios/App
+          if [ -d App.xcworkspace ]; then TARGET="-workspace App.xcworkspace"; else TARGET="-project App.xcodeproj"; fi
+          xcodebuild $TARGET -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tail -n 40
+      - name: Упаковать .ipa
+        run: |
+          APP=$(find ios/App/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          echo "App: $APP"
+          mkdir -p out/Payload
+          cp -R "$APP" out/Payload/
+          cd out && zip -qry SpeakerNotes-ios-unsigned.ipa Payload && rm -rf Payload
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with: { name: ios, path: out/SpeakerNotes-ios-unsigned.ipa }
+
+  # ---------------- Десктоп (Windows / macOS / Linux) ----------------
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: dist:win
+          - os: macos-latest
+            script: dist:mac
+          - os: ubuntu-latest
+            script: dist:linux
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: npm }
+      - run: npm ci
+      - run: npm run ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.AppImage
+
+  # ---------------- Релиз «latest» со всеми файлами ----------------
+  release:
+    needs: [android, ios, desktop]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - name: Опубликовать релиз
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          find artifacts -type f \( -name "*.apk" -o -name "*.ipa" -o -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" \) -exec cp {} . \;
+          FILES=$(ls *.apk *.ipa *.exe *.dmg *.AppImage 2>/dev/null || true)
+          echo "Files: $FILES"
+          [ -z "$FILES" ] && { echo "Нет файлов для релиза"; exit 1; }
+          VERSION=$(node -p "require('./package.json').version")
+          gh release delete latest --yes --cleanup-tag || true
+          git push origin :refs/tags/latest || true
+          NOTES="Сборка ${VERSION} от $(date -u '+%Y-%m-%d %H:%M') UTC, коммит ${GITHUB_SHA::7}.
+
+          **iPad / iPhone:** SpeakerNotes-ios-unsigned.ipa — установить через AltStore / SideStore / Sideloadly (подпишется вашим Apple ID).
+          **Android:** SpeakerNotes-android.apk — открыть файл на телефоне и разрешить установку.
+          **Windows:** *-portable.exe — запускается без установки; *-nsis.exe — установщик.
+          **macOS:** .dmg (при первом запуске: правый клик → Открыть). **Linux:** .AppImage.
+          **Веб-версия (работает и на iPad через Safari → «На экран Домой»):** https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
+          gh release create latest $FILES --title "SpeakerNotes ${VERSION} (последняя сборка)" --notes "$NOTES" --target "$GITHUB_SHA" --latest
