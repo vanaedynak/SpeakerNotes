@@ -63,7 +63,7 @@ export function SettingsDialog() {
           value={s.font}
           onChange={(font) => set({ font })}
           options={[
-            ['hyperlegible', 'Для слабого зрения'],
+            ['hyperlegible', 'Чёткий (Golos)'],
             ['system', 'Системный'],
             ['serif', 'С засечками'],
             ['mono', 'Моноширинный'],

@@ -19,7 +19,7 @@ import type { El } from './types';
 
 const FONTS = {
   system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  hyperlegible: '"Atkinson Hyperlegible", -apple-system, "Segoe UI", Roboto, sans-serif',
+  hyperlegible: '"Golos Text", -apple-system, "Segoe UI", Roboto, sans-serif',
   serif: 'Georgia, "Times New Roman", serif',
   mono: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
